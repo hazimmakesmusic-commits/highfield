@@ -9,7 +9,7 @@ export default function Home() {
     <div className="mx-auto max-w-5xl space-y-8">
       <div className="space-y-2 pt-4">
         <h1 className="text-4xl font-semibold tracking-tight">What are we making <span className="ember-text">today?</span></h1>
-        <p className="text-muted-foreground">Cover art, music videos, visualizers and promo clips. Everything you make is kept in your library.</p>
+        <p className="text-muted-foreground">Cover art, music videos, visualizers and promo clips. Models marked <span className="text-emerald-400">Free</span> cost nothing; paid ones only light up if you add a Replicate key.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {TOOLS.map((t) => {
@@ -29,8 +29,8 @@ export default function Home() {
         <ol className="list-decimal space-y-1 pl-5">
           <li>Make a key frame in <Link className="text-primary" href="/image">Image</Link> (try the Cinematic or Album cover style).</li>
           <li>Hit <b>Animate</b> on it and pick a camera move or effect in <Link className="text-primary" href="/video">Video</Link>.</li>
-          <li>Send a portrait and your vocals to <Link className="text-primary" href="/lipsync">Lip Sync</Link> for performance shots.</li>
-          <li><Link className="text-primary" href="/upscale">Upscale</Link> the keepers to 4K and download them from your <Link className="text-primary" href="/library">Library</Link>.</li>
+          <li>Send that clip and your vocals to <Link className="text-primary" href="/lipsync">Lip Sync</Link> for performance shots.</li>
+          <li><Link className="text-primary" href="/upscale">Upscale</Link> the keepers and download them from your <Link className="text-primary" href="/library">Library</Link>.</li>
         </ol>
       </div>
     </div>

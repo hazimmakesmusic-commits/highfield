@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { listGenerations, startGeneration } from "@/lib/generations";
 import { TOOLS, type ToolId } from "@/lib/models";
 
+export const maxDuration = 120; // free image models answer synchronously
+
 export async function GET(req: Request) {
   const tool = new URL(req.url).searchParams.get("tool") as ToolId | null;
   if (tool && !TOOLS.some((t) => t.id === tool)) return NextResponse.json({ error: "Unknown tool" }, { status: 400 });

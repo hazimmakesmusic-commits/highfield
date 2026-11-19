@@ -1,8 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
-import { defaultValues, isMediaField, missingField, modelsFor, TOOLS, type MediaKind, type ModelDef, type ToolId, type Values } from "@/lib/models";
+import { defaultValues, isFree, isMediaField, missingField, modelsFor, needsFor, TOOLS, type EnvKey, type MediaKind, type ModelDef, type ToolId, type Values } from "@/lib/models";
 import { CAMERA_PRESETS, EFFECT_PRESETS, STYLE_PRESETS, type Preset, type PresetChoice, type PresetKind } from "@/lib/presets";
 import { useGenerations } from "@/hooks/use-generations";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,14 @@ function initialState(tool: ToolId, params: URLSearchParams): { model: ModelDef;
   return { model, values };
 }
 
+type Config = { keys: Record<EnvKey, boolean>; cloudStorage: boolean };
+
+const NEED_LABEL: Record<EnvKey, string> = {
+  POLLINATIONS_API_KEY: "Needs a free Pollinations key",
+  HF_TOKEN: "Needs a free Hugging Face token",
+  REPLICATE_API_TOKEN: "Paid: needs a Replicate key",
+};
+
 export function Studio({ tool }: { tool: ToolId }) {
   const params = useSearchParams();
   const init = useMemo(() => initialState(tool, new URLSearchParams(params.toString())), [tool, params]);
@@ -44,6 +52,19 @@ export function Studio({ tool }: { tool: ToolId }) {
   const [error, setError] = useState<string | null>(null);
   const { items, loading, error: listError, add, remove } = useGenerations(tool);
   const info = TOOLS.find((t) => t.id === tool)!;
+  const [config, setConfig] = useState<Config | null>(null);
+  const missingKey = (m: ModelDef) => { const n = needsFor(m); return n && config && !config.keys[n] ? n : null; };
+
+  useEffect(() => { fetch("/api/config").then((r) => r.json()).then(setConfig).catch(() => {}); }, []);
+
+  // Once we know which keys are set, move off a model that can't run here.
+  useEffect(() => {
+    if (!config || !missingKey(model)) return;
+    const usable = modelsFor(tool).filter((m) => !missingKey(m));
+    const media = model.fields.filter((f) => isMediaField(f) && values[f.name]).map((f) => f.type);
+    const pick = usable.find((m) => media.every((t) => m.fields.some((f) => f.type === t))) ?? usable[0];
+    if (pick) chooseModel(pick);
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function chooseModel(m: ModelDef) {
     // Keep the prompt and any media that fits the new model.
@@ -91,15 +112,27 @@ export function Studio({ tool }: { tool: ToolId }) {
         <div className="space-y-2">
           <Label>Model</Label>
           <div className="grid gap-2">
-            {modelsFor(tool).map((m) => (
-              <button key={m.id} type="button" onClick={() => chooseModel(m)}
-                className={cn("rounded-lg border p-3 text-left transition-colors hover:bg-muted",
-                  m.id === model.id && "border-primary bg-primary/10")}>
-                <p className="text-sm font-medium">{m.name}</p>
-                <p className="text-xs text-muted-foreground">{m.blurb}</p>
-              </button>
-            ))}
+            {modelsFor(tool).map((m) => {
+              const missing = missingKey(m);
+              return (
+                <button key={m.id} type="button" onClick={() => chooseModel(m)} disabled={!!missing}
+                  title={missing ? `${NEED_LABEL[missing]} (${missing}). See the README.` : undefined}
+                  className={cn("rounded-lg border p-3 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45",
+                    m.id === model.id && "border-primary bg-primary/10")}>
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    {m.name}
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                      isFree(m) ? "bg-emerald-500/15 text-emerald-400" : "bg-muted text-muted-foreground")}>
+                      {isFree(m) ? "Free" : "Paid"}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{m.blurb}</p>
+                  {missing && <p className="mt-1 text-xs text-primary">{NEED_LABEL[missing]}</p>}
+                </button>
+              );
+            })}
           </div>
+          {model.limits && <p className="rounded-md bg-muted p-2 text-xs text-muted-foreground">{model.limits}</p>}
         </div>
 
         {model.fields.map((f) => (
