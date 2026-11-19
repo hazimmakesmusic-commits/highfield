@@ -18,13 +18,13 @@ function sendTo(kind: string, key: string) {
   const q = (o: Record<string, string>) => `?${new URLSearchParams(o)}`;
   if (kind === "image") return [
     { label: "Animate", icon: Film, href: `/video${q({ image: key })}` },
-    { label: "Edit", icon: Pencil, href: `/image${q({ model: "flux-kontext", image: key })}` },
-    { label: "Lip sync", icon: Mic, href: `/lipsync${q({ model: "omni-human", image: key })}` },
-    { label: "Upscale", icon: Maximize2, href: `/upscale${q({ model: "topaz-image", image: key })}` },
+    { label: "Edit", icon: Pencil, href: `/image${q({ model: "free-kontext", image: key })}` },
+    { label: "Lip sync", icon: Mic, href: `/lipsync${q({ image: key })}` },
+    { label: "Upscale", icon: Maximize2, href: `/upscale${q({ image: key })}` },
   ];
   if (kind === "video") return [
-    { label: "Lip sync", icon: Mic, href: `/lipsync${q({ model: "lipsync-2", video: key })}` },
-    { label: "Upscale", icon: Maximize2, href: `/upscale${q({ model: "topaz-video", video: key })}` },
+    { label: "Lip sync", icon: Mic, href: `/lipsync${q({ video: key })}` },
+    { label: "Upscale", icon: Maximize2, href: `/upscale${q({ video: key })}` },
   ];
   return [];
 }

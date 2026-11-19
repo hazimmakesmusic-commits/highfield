@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODELS, TOOLS, defaultValues, extractUrls, getModel, missingField, modelsFor } from "@/lib/models";
+import { MODELS, TOOLS, defaultValues, extractUrls, getModel, isFree, missingField, modelsFor, needsFor } from "@/lib/models";
 import { CAMERA_PRESETS, EFFECT_PRESETS, STYLE_PRESETS, composePrompt } from "@/lib/presets";
 
 describe("model catalogue", () => {
@@ -14,6 +14,12 @@ describe("model catalogue", () => {
       for (const f of m.fields) if (f.required) v[f.name] = f.type === "prompt" || f.type === "text" ? "a test prompt" : `https://x.test/${f.name}`;
       expect(missingField(m, v), m.id).toBeNull();
       const input = m.build(v);
+      if (m.provider === "hf") {
+        expect(input.api, m.id).toMatch(/^\//);
+        const flat = JSON.stringify(input.data);
+        for (const f of m.fields) if (f.required) expect(flat, `${m.id}.${f.name}`).toContain(String(v[f.name]));
+        continue;
+      }
       for (const f of m.fields) if (f.required) expect(input[f.name], `${m.id}.${f.name}`).toBe(v[f.name]);
       for (const val of Object.values(input)) expect(val, m.id).not.toBeUndefined();
       // select defaults must be one of their options
@@ -31,6 +37,31 @@ describe("model catalogue", () => {
   it("reports the missing required field", () => {
     expect(missingField(getModel("omni-human")!, { image: "x" })).toBe("Vocals or speech");
     expect(missingField(getModel("flux-ultra")!, { prompt: "   " })).toBe("Prompt");
+  });
+});
+
+describe("free providers", () => {
+  it("puts a free, usable model first for every tool", () => {
+    for (const t of TOOLS) expect(isFree(modelsFor(t.id)[0]), t.id).toBe(true);
+    expect(needsFor(getModel("free-sana")!)).toBeNull();
+    expect(needsFor(getModel("free-ltx")!)).toBe("HF_TOKEN");
+    expect(needsFor(getModel("kling-2.1")!)).toBe("REPLICATE_API_TOKEN");
+    expect(needsFor(getModel("free-z-image")!)).toBe("POLLINATIONS_API_KEY");
+  });
+  it("maps aspect ratios to Pollinations pixel sizes", () => {
+    expect(getModel("free-flux-schnell")!.build({ prompt: "p", aspect_ratio: "9:16" })).toEqual({ model: "black-forest-labs/flux.1-schnell", prompt: "p", width: 768, height: 1344 });
+    expect(getModel("free-sana")!.build({ prompt: "p" })).toEqual({ model: "sana", prompt: "p", width: 1024, height: 1024 });
+  });
+  it("switches LTX between text and image mode", () => {
+    const ltx = getModel("free-ltx")!;
+    const t2v = ltx.build({ prompt: "p", duration: "3", aspect_ratio: "9:16" }) as { api: string; data: unknown[] };
+    expect(t2v.api).toBe("/text_to_video");
+    expect(t2v.data.slice(2, 8)).toEqual([null, null, 832, 480, "text-to-video", 3]);
+    const img = { path: "/tmp/x.png", meta: { _type: "gradio.FileData" } };
+    const i2v = ltx.build({ prompt: "p", image: img, duration: "2", aspect_ratio: "16:9" }) as { api: string; data: unknown[] };
+    expect(i2v.api).toBe("/image_to_video");
+    expect(i2v.data[2]).toBe(img);
+    expect(i2v.data[6]).toBe("image-to-video");
   });
 });
 

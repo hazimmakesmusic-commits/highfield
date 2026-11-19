@@ -29,17 +29,24 @@ export function useGenerations(tool?: ToolId) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Sequential loop: a free-provider poll can hold the request open for up to ~45s, so never overlap them.
   useEffect(() => {
-    const t = setInterval(async () => {
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function tick() {
       const todo = itemsRef.current.filter(pending);
-      if (!todo.length) return;
-      const fresh = await Promise.all(todo.map(async (g) => {
-        const res = await fetch(`/api/generations/${g.id}`).catch(() => null);
-        return res ? ((await res.json()) as Generation) : g;
-      }));
-      setItems((cur) => cur.map((g) => fresh.find((f) => f.id === g.id) ?? g));
-    }, POLL_MS);
-    return () => clearInterval(t);
+      if (todo.length) {
+        const fresh = await Promise.all(todo.map(async (g) => {
+          const res = await fetch(`/api/generations/${g.id}`).catch(() => null);
+          return res ? ((await res.json().catch(() => g)) as Generation) : g;
+        }));
+        if (stop) return;
+        setItems((cur) => cur.map((g) => fresh.find((f) => f.id === g.id) ?? g));
+      }
+      if (!stop) timer = setTimeout(tick, POLL_MS);
+    }
+    timer = setTimeout(tick, POLL_MS);
+    return () => { stop = true; clearTimeout(timer); };
   }, []);
 
   const add = (g: Generation) => setItems((cur) => [g, ...cur]);
